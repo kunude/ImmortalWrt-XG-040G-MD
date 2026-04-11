@@ -50,4 +50,5 @@ mkdir -p "../target/linux/mediatek/patches-6.12"
 cp -f "target/linux/mediatek/patches-6.12/436-drivers-mtd-spi-nor-Add-calibration-support-for-spi-.patch" "../target/linux/mediatek/patches-6.12/436-drivers-mtd-spi-nor-Add-calibration-support-for-spi-.patch"
 mkdir -p "../target/linux/mediatek/patches-6.12"
 cp -f "target/linux/mediatek/patches-6.12/960-asus-hack-u-boot-ignore-mtdparts.patch" "../target/linux/mediatek/patches-6.12/960-asus-hack-u-boot-ignore-mtdparts.patch"
+rm target/linux/generic/hack-6.12/400-mtd-spinand-Support-fmsh.patch target/linux/generic/hack-6.18/400-mtd-spinand-Support-fmsh.patch package/boot/uboot-mediatek/patches/342-mtd-spinand-Support-fmsh.patch
 echo "补丁应用完成！"
