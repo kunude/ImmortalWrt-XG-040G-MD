@@ -2,7 +2,7 @@
 # 这是一个自动生成的同步脚本，用于将修改应用到新的 OpenWrt 源码根目录
 
 echo "正在应用补丁文件到当前项目..."
-rm -f ../target/linux/generic/hack-6.12/400-mtd-spinand-Support-fmsh.patch ../package/boot/uboot-mediatek/patches/342-mtd-spinand-Support-fmsh.patch
+rm -f ../target/linux/generic/hack-6.12/400-mtd-spinand-Support-fmsh.patch ../package/boot/uboot-mediatek/patches/342-mtd-spinand-Support-fmsh.patch ../target/linux/generic/backport-6.12/401-02-v6.18-mtd-spinand-fmsh-remove-QE-bit-for-FM25S01A-flash.patch ../target/linux/generic/backport-6.12/401-01-v6.18-mtd-spinand-add-support-for-FudanMicro-FM25S01A.patch
 mkdir -p "../package/boot/uboot-tools/uboot-envtools/files"
 cp -f "package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic" "../package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic"
 mkdir -p "../package/kernel/linux/modules"
