@@ -1,65 +1,79 @@
 #
-# Copyright (c) 2019-2020 P3TERX <https://p3terx.com>
+# 版权所有 (c) 2019-2020 P3TERX <https://p3terx.com>
 #
-# This is free software, licensed under the MIT License.
-# See /LICENSE for more information.
+# 这是自由软件，基于 MIT 许可证授权
+# 详情查看 /LICENSE 文件
 #
 # https://github.com/P3TERX/Actions-OpenWrt
-# Description: Build OpenWrt using GitHub Actions
+# 描述：使用 GitHub Actions 构建 OpenWrt 固件
 #
 
+# ==================== 工作流名称 ====================
 name: Build OpenWrt
 
+# ==================== 触发条件 ====================
 on:
+  # 1. 仓库派发事件（可通过 API 远程触发）
   repository_dispatch:
+  # 2. 手动触发（在 GitHub 网页上点击按钮运行）
   workflow_dispatch:
     inputs:
       ssh:
-        description: 'SSH connection to Actions'
+        description: 'SSH 连接到 Actions（用于远程调试）'
         required: false
         default: 'false'
         type: boolean
+  # 3. 定时触发（每周一北京时间 16:00，cron 时间为 UTC 时间）
   schedule:
     - cron: 0 8 * * 1
 
+# ==================== 全局环境变量 ====================
 env:
-  REPO_URL: https://github.com/immortalwrt/immortalwrt
-  REPO_BRANCH: master
-  FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: .config
-  DIY_P1_SH: diy-part1.sh
-  DIY_P2_SH: diy-part2.sh
-  UPLOAD_BIN_DIR: true
-  UPLOAD_FIRMWARE: true
-  UPLOAD_RELEASE: true
-  TZ: Asia/Shanghai
+  REPO_URL: https://github.com/immortalwrt/immortalwrt    # OpenWrt 源码仓库地址（使用 ImmortalWrt）
+  REPO_BRANCH: master                                      # 源码分支
+  FEEDS_CONF: feeds.conf.default                           # 软件源配置文件
+  CONFIG_FILE: .config                                     # 编译配置文件
+  DIY_P1_SH: diy-part1.sh                                  # 自定义脚本1（feeds 更新前执行）
+  DIY_P2_SH: diy-part2.sh                                  # 自定义脚本2（配置加载后执行）
+  UPLOAD_BIN_DIR: true                                     # 是否上传 bin 目录（包含所有编译产物）
+  UPLOAD_FIRMWARE: true                                    # 是否上传固件目录（仅最终固件）
+  UPLOAD_RELEASE: true                                     # 是否发布到 GitHub Release
+  TZ: Asia/Shanghai                                        # 时区设置
 
+# ==================== 构建任务 ====================
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04    # 运行环境：Ubuntu 22.04
 
     steps:
+    # -------------------- 步骤 1：拉取仓库代码 --------------------
     - name: Checkout
-      uses: actions/checkout@main
+      uses: actions/checkout@main    # 检出当前仓库代码（包含 diy 脚本和配置文件）
       with:
-        fetch-depth: 0
+        fetch-depth: 0               # 获取完整 Git 历史（避免文件缺失）
 
+    # -------------------- 步骤 2：初始化编译环境 --------------------
     - name: Initialization environment
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
+        # 1. 显示磁盘使用情况和最大的 100 个已安装软件包
         dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -n | tail -n 100
         df -h
+        
+        # 2. 卸载 GitHub Runner 自带的大型软件包，释放磁盘空间
         echo "Removing large packages"
-        sudo apt-get remove -y '^dotnet-.*'
-        sudo apt-get remove -y '^llvm-.*'
-        sudo apt-get remove -y 'php.*'
-        sudo apt-get remove -y '^mongodb-.*'
-        sudo apt-get remove -y '^mysql-.*'
+        sudo apt-get remove -y '^dotnet-.*'      # .NET 全家桶
+        sudo apt-get remove -y '^llvm-.*'        # LLVM
+        sudo apt-get remove -y 'php.*'           # PHP
+        sudo apt-get remove -y '^mongodb-.*'     # MongoDB
+        sudo apt-get remove -y '^mysql-.*'       # MySQL
         sudo apt-get remove -y azure-cli google-cloud-sdk google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri
         sudo apt-get autoremove -y
         sudo apt-get clean
         df -h
+        
+        # 3. 删除大型目录，进一步释放空间
         echo "Removing large directories"
         sudo rm -rf /usr/share/dotnet/
         sudo rm -rf /usr/local/graalvm/
@@ -69,6 +83,8 @@ jobs:
         sudo rm -rf /usr/local/lib/android
         sudo rm -rf /usr/local/lib/node_modules
         df -h
+        
+        # 4. 更新软件包列表并安装 OpenWrt 编译所需的依赖
         sudo -E apt-get -qq update
         sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
           bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
@@ -80,77 +96,93 @@ jobs:
           texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
+        
+        # 5. 设置时区并创建工作目录
         sudo timedatectl set-timezone "$TZ"
         sudo mkdir -p /workdir
         sudo chown $USER:$GROUPS /workdir
 
+    # -------------------- 步骤 3：克隆 OpenWrt 源码 --------------------
     - name: Clone source code
       working-directory: /workdir
       run: |
         df -hT $PWD
-        git clone $REPO_URL -b $REPO_BRANCH openwrt
-        ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
-        tar zxvf $GITHUB_WORKSPACE/XG-040G-MD.tar.gz -C /workdir/openwrt
+        git clone $REPO_URL -b $REPO_BRANCH openwrt          # 克隆 ImmortalWrt 主仓库
+        ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt    # 创建软链接方便访问
+        tar zxvf $GITHUB_WORKSPACE/XG-040G-MD.tar.gz -C /workdir/openwrt    # 解压设备专属补丁/文件
 
+    # -------------------- 步骤 4：启用 ccache 编译缓存 --------------------
     - name: Enable build ccache
       uses: klever1988/cachewrtbuild@main
       with:
         ccache: 'true'
-        mixkey: 'immortalwrt-xg040gmd-612'
+        mixkey: 'immortalwrt-xg040gmd-612'    # 缓存键值（用于区分不同项目）
         prefix: ${{ github.workspace }}/openwrt
 
+    # -------------------- 步骤 5：加载自定义 feeds 源 --------------------
     - name: Load custom feeds
       run: |
-        [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
+        [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default    # 替换 feeds 配置文件
         chmod +x $DIY_P1_SH
         cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P1_SH
-   
+        $GITHUB_WORKSPACE/$DIY_P1_SH    # 执行自定义脚本（通常用于添加第三方软件源）
+
+    # -------------------- 步骤 6：更新 feeds 软件包列表 --------------------
     - name: Update feeds
       run: cd openwrt && ./scripts/feeds update -a
 
+    # -------------------- 步骤 7：安装 feeds 软件包 --------------------
     - name: Install feeds
       run: cd openwrt && ./scripts/feeds install -a
 
+    # -------------------- 步骤 8：加载自定义配置 --------------------
     - name: Load custom configuration
       run: |
-        [ -e files ] && mv files openwrt/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+        [ -e files ] && mv files openwrt/files                    # 自定义文件（覆盖到固件根目录）
+        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config    # 编译配置文件
         chmod +x $DIY_P2_SH
         cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P2_SH
+        $GITHUB_WORKSPACE/$DIY_P2_SH    # 执行自定义脚本（通常用于修改配置）
 
+    # -------------------- 步骤 9：SSH 远程连接（调试用） --------------------
     - name: SSH connection to Actions
       uses: P3TERX/ssh2actions@v1.0.0
       if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
       env:
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}      # Telegram 通知（可选）
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
 
+    # -------------------- 步骤 10：下载软件包源码 --------------------
     - name: Download package
       id: package
       run: |
         cd openwrt
-        make defconfig
-        make download -j8
-        find dl -size -1024c -exec ls -l {} \;
-        find dl -size -1024c -exec rm -f {} \;
+        make defconfig          # 展开完整的配置文件
+        make download -j8       # 多线程下载所有需要的软件包源码
+        find dl -size -1024c -exec ls -l {} \;    # 列出下载不完整的小文件
+        find dl -size -1024c -exec rm -f {} \;    # 删除下载失败的残损文件
 
+    # -------------------- 步骤 11：编译固件 --------------------
     - name: Compile the firmware
       id: compile
       run: |
         cd openwrt
         echo -e "$(nproc) thread compile"
+        # 先尝试多线程编译，失败则降级为单线程详细输出（便于排查错误）
         make -j$(nproc) || make -j1 || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
+        # 提取设备名称用于后续文件命名
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
+        # 生成时间戳用于文件命名
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
-        
+
+    # -------------------- 步骤 12：检查磁盘空间 --------------------
     - name: Check space usage
       if: (!cancelled())
       run: df -hT
 
+    # -------------------- 步骤 13：上传完整 bin 目录（调试用） --------------------
     - name: Upload bin directory
       uses: actions/upload-artifact@main
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
@@ -158,15 +190,17 @@ jobs:
         name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: openwrt/bin
 
+    # -------------------- 步骤 14：整理固件文件 --------------------
     - name: Organize files
       id: organize
       if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       run: |
         cd openwrt/bin/targets/*/*
-        rm -rf packages
+        rm -rf packages    # 删除 packages 目录（不需要上传）
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
 
+    # -------------------- 步骤 15：上传固件目录（仅最终固件） --------------------
     - name: Upload firmware directory
       uses: actions/upload-artifact@main
       if: steps.organize.outputs.status == 'success' && !cancelled()
@@ -174,6 +208,7 @@ jobs:
         name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE }}
 
+    # -------------------- 步骤 16：生成 Release 标签名 --------------------
     - name: Generate release tag
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
@@ -182,8 +217,9 @@ jobs:
         touch release.txt
         echo "status=success" >> $GITHUB_OUTPUT
 
+    # -------------------- 步骤 17：发布固件到 GitHub Release --------------------
     - name: Upload firmware to release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v1    # ⚠️ 需要升级到 v3
       if: steps.tag.outputs.status == 'success' && !cancelled()
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -192,17 +228,19 @@ jobs:
         body_path: release.txt
         files: ${{ env.FIRMWARE }}/*
 
+    # -------------------- 步骤 18：删除旧的工作流运行记录 --------------------
     - name: Delete workflow runs
       uses: Mattraks/delete-workflow-runs@main
       with:
-        retain_days: 1
-        keep_minimum_runs: 3
+        retain_days: 1          # 保留最近 1 天的运行记录
+        keep_minimum_runs: 3    # 至少保留 3 条运行记录
 
+    # -------------------- 步骤 19：删除旧的 Release --------------------
     - name: Remove old Releases
-      uses: dev-drprasad/delete-older-releases@v0.2.1
+      uses: dev-drprasad/delete-older-releases@v0.2.1    # ⚠️ 需要升级到 v0.3.4
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       with:
-        keep_latest: 5
-        delete_tags: true
+        keep_latest: 5          # 保留最新的 5 个 Release
+        delete_tags: true       # 同时删除对应的 Git 标签
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
