@@ -19,12 +19,11 @@ on:
       patch_type:
         description: "选择补丁版本"
         required: true
-        default: "patch-master"
+        default: "patch-bingoguo93"
         type: choice
-        # ===================== 修改点1：新增patch-master选项 =====================
         options:
-          - patch-bingoguo93-25.12
-          - patch-xiangtailiang-25.12
+          - patch-bingoguo93
+          - patch-xiangtailiang
           - patch-master
 
   # 每24小时检查一次（UTC 0点，北京时间8点）
@@ -47,7 +46,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      # ===================== 修改点2：动态设置分支/配置 =====================
+      # 动态设置分支/配置
       - name: Set dynamic branch and config
         id: dynamic_config
         run: |
@@ -164,37 +163,29 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Copy configuration and defconfig
+      # ===================== 顺序调整：第一步：仅复制配置文件 =====================
+      - name: Copy base configuration file
         run: |
           [ -f "${CONFIG_FILE}" ] && cp -fv "${CONFIG_FILE}" openwrt/.config || echo "警告: 未找到配置文件"
-          cd openwrt 
-          if: env.IS_MASTER_PATCH == 'true'
+
+      # ===================== 顺序调整：第二步：修改patch-master配置（defconfig之前） =====================
+      - name: Modify config for patch-master
+        if: env.IS_MASTER_PATCH == 'true'
+        working-directory: ./openwrt
+        run: |
           echo "🔧 正在为master分支修改配置..."
           # 禁用 luci-app-nlbwmon
           sed -i 's/^CONFIG_PACKAGE_luci-app-nlbwmon=y/# CONFIG_PACKAGE_luci-app-nlbwmon is not set/' .config
-          sed -i 's/^CONFIG_PACKAGE_nlbwmon=y/# CONFIG_PACKAGE_nlbwmon is not set/' .config
           # 启用 中文默认设置
           sed -i 's/^# CONFIG_PACKAGE_default-settings-chn is not set/CONFIG_PACKAGE_default-settings-chn=y/' .config
           sed -i 's/^CONFIG_PACKAGE_default-settings-chn=n/CONFIG_PACKAGE_default-settings-chn=y/' .config
-          make defconfig
-          else: make defconfig
-          [ -e .config ] && cp .config defconfig-final.config
+          echo "✅ master分支配置修改完成"
 
-      # # ===================== 修改点3：自动修改master分支配置 =====================
-      # - name: Modify config for patch-master
-      #   if: env.IS_MASTER_PATCH == 'true'
-      #   working-directory: ./openwrt
-      #   run: |
-      #     echo "🔧 正在为master分支修改配置..."
-      #     # 禁用 luci-app-nlbwmon
-      #     sed -i 's/^CONFIG_PACKAGE_luci-app-nlbwmon=y/# CONFIG_PACKAGE_luci-app-nlbwmon is not set/' .config
-      #     sed -i 's/^CONFIG_PACKAGE_nlbwmon=y/# CONFIG_PACKAGE_nlbwmon is not set/' .config
-      #     # 启用 中文默认设置
-      #     sed -i 's/^# CONFIG_PACKAGE_default-settings-chn is not set/CONFIG_PACKAGE_default-settings-chn=y/' .config
-      #     sed -i 's/^CONFIG_PACKAGE_default-settings-chn=n/CONFIG_PACKAGE_default-settings-chn=y/' .config
-      #     # 重新生成配置
-      #     make defconfig
-      #     echo "✅ master分支配置修改完成"
+      # ===================== 顺序调整：第三步：执行第一次make defconfig =====================
+      - name: Generate defconfig and backup
+        run: |
+          cd openwrt && make defconfig
+          [ -e .config ] && cp .config defconfig-final.config
 
       - name: Upload build config files
         uses: actions/upload-artifact@v6
@@ -254,7 +245,7 @@ jobs:
           分支: ${{ env.REPO_BRANCH }}
           使用补丁: ${{ env.SELECTED_PATCH }}
           Commit Hash: ${{ env.COMMIT_HASH }}
-          Commit: [${{ env.COMMIT_MSG }}](${{ env.REPO_URL }}/commit/${{ env.COMMIT_HASH_FULL }})
+          Commit: [${{ env.COMMIT_MSG }}](${{ env.REPO_URL }}/commit/${{ COMMIT_HASH_FULL }})
           EOF
 
       - name: Publish GitHub Release
