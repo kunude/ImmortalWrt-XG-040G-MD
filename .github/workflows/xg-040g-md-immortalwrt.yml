@@ -23,8 +23,8 @@ on:
         type: choice
         # ===================== 修改点1：新增patch-master选项 =====================
         options:
-          - patch-bingoguo93
-          - patch-xiangtailiang
+          - patch-bingoguo93-25.12
+          - patch-xiangtailiang-25.12
           - patch-master
 
   # 每24小时检查一次（UTC 0点，北京时间8点）
