@@ -15,6 +15,8 @@ on:
 env:
   REPO_URL: https://github.com/fzs209/immortalwrt.git
   # REPO_BRANCH 将由 workflow_dispatch 输入动态设置
+  DEVICE_TARGET: airoha
+  DEVICE_SUBTARGET: an7581
   CONFIG_FILE: config/xg-040g-md.config
   CACHE_TOOLCHAIN: true
   UPLOAD_BIN_DIR: false
@@ -78,17 +80,10 @@ jobs:
 
     - name: Generate Variables(生成变量)
       run: |
-        cp $CONFIG_FILE $OPENWRT_PATH/.config
-        cd $OPENWRT_PATH
-        make defconfig > /dev/null 2>&1
-        grep "CONFIG_PACKAGE_luci-app-airoha-npu" .config || echo "WARNING: option missing!"
         SOURCE_REPO="$(echo $REPO_URL | awk -F '/' '{print $(NF)}')"
         echo "SOURCE_REPO=$SOURCE_REPO" >> $GITHUB_ENV
-        DEVICE_TARGET=$(cat .config | grep CONFIG_TARGET_BOARD | awk -F '"' '{print $2}')
         echo "DEVICE_TARGET=$DEVICE_TARGET" >> $GITHUB_ENV
-        DEVICE_SUBTARGET=$(cat .config | grep CONFIG_TARGET_SUBTARGET | awk -F '"' '{print $2}')
         echo "DEVICE_SUBTARGET=$DEVICE_SUBTARGET" >> $GITHUB_ENV
-        # 生成唯一 release tag（基于日期与运行编号）
         echo "RELEASE_TAG=XG-040G-MD-$(date +"%Y%m%d")-${{ github.run_number }}" >> $GITHUB_ENV
 
     - name: Cache Toolchain(缓存工具链)
