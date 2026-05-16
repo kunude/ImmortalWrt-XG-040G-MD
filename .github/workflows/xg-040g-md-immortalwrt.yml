@@ -118,6 +118,13 @@ jobs:
         cd $OPENWRT_PATH
         ./scripts/feeds update -a
         ./scripts/feeds install -a
+    
+    - name: Custom Package Integration (passwall2)
+      run: |
+        cd $OPENWRT_PATH/package
+        bash $GITHUB_WORKSPACE/scripts/update-packages.sh
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Load Custom Configuration(加载自定义配置)
       run: |
