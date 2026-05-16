@@ -67,5 +67,32 @@ cp -a "$SCRIPT_DIR/target/linux/generic/pending-6.12/675-02-nft_flow_offload-add
 mkdir -p "$PROJECT_ROOT/target/linux/generic/pending-6.12"
 cp -a "$SCRIPT_DIR/target/linux/generic/pending-6.12/675-04-nft_flow_offload-add-vlan-passthrough-support.patch" "$PROJECT_ROOT/target/linux/generic/pending-6.12/675-04-nft_flow_offload-add-vlan-passthrough-support.patch"
 
+# 添加缺失的 platform.sh 文件（用于 sysupgrade）
+echo "添加 platform.sh 文件..."
+PLATFORM_SH_DIR="$PROJECT_ROOT/target/linux/airoha/an7581/base-files/lib/upgrade"
+mkdir -p "$PLATFORM_SH_DIR"
+cat > "$PLATFORM_SH_DIR/platform.sh" << 'EOF'
+REQUIRE_IMAGE_METADATA=1
+RAMFS_COPY_BIN='fitblk fit_check_sign'
+
+platform_do_upgrade() {
+    local board=$(board_name)
+    case "$board" in
+        gemtek,w1700k-ubi)
+            fit_do_upgrade "$1"
+            ;;
+        *)
+            nand_do_upgrade "$1"
+            ;;
+    esac
+}
+
+platform_check_image() {
+    return 0
+}
+EOF
+chmod +x "$PLATFORM_SH_DIR/platform.sh"
+echo "platform.sh 已创建"
+
 echo "========================================"
 echo "✅ 补丁部署完成！请重新编译源码。"
