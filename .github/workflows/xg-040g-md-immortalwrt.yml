@@ -125,6 +125,11 @@ jobs:
         bash $GITHUB_WORKSPACE/scripts/update-packages.sh
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Add NPU support
+      run: |
+        cd $OPENWRT_PATH
+        bash $GITHUB_WORKSPACE/scripts/add-npu.sh
 
     - name: Load Custom Configuration(加载自定义配置)
       run: |
