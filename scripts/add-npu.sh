@@ -1,24 +1,9 @@
 #!/bin/bash
-# 此时已经位于 $OPENWRT_PATH 下（openwrt 根目录）
-
 cd package || exit 1
 
-# 克隆 NPU 插件
-if [ ! -d luci-app-airoha-npu ]; then
-    echo "Cloning luci-app-airoha-npu..."
-    git clone https://github.com/rchen14b/luci-app-airoha-npu.git
-fi
-
-# 修复 Makefile
-if [ -f luci-app-airoha-npu/Makefile ]; then
-    if ! grep -q "^include \$(TOPDIR)/feeds/luci/luci.mk" luci-app-airoha-npu/Makefile; then
-        sed -i '1i include $(TOPDIR)/feeds/luci/luci.mk' luci-app-airoha-npu/Makefile
-        echo "Fixed luci-app-airoha-npu Makefile"
-    fi
-fi
-
-# 打包 NPU 固件（如果文件存在）
+# 只打包 NPU 固件（不再克隆插件，因为 patch.sh 已经处理）
 if [ -f "$GITHUB_WORKSPACE/npu-firmware/en7581_npu_rv32.bin" ]; then
+    rm -rf airoha-en7581-mt7996-npu-firmware  # 确保没有旧目录干扰
     mkdir -p airoha-en7581-mt7996-npu-firmware
     cp "$GITHUB_WORKSPACE/npu-firmware/en7581_npu_rv32.bin" airoha-en7581-mt7996-npu-firmware/
     cat > airoha-en7581-mt7996-npu-firmware/Makefile << 'EOF'
@@ -45,18 +30,16 @@ endef
 
 define Package/airoha-en7581-mt7996-npu-firmware/install
 	$(INSTALL_DIR) $(1)/lib/firmware/airoha
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/en7581_npu_rv32.bin $(1)/lib/firmware/airoha/
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/en7581_npu_rv32.bin $(1)/lib/firmware/airoha/en7581_npu_rv32.bin
 endef
 
 $(eval $(call BuildPackage,airoha-en7581-mt7996-npu-firmware))
 EOF
     echo "NPU firmware package created"
 else
-    echo "WARNING: NPU firmware not found at $GITHUB_WORKSPACE/npu-firmware/en7581_npu_rv32.bin"
+    echo "WARNING: NPU firmware not found"
 fi
 
-# 返回 openwrt 根目录并重新安装 feeds
 cd ..
 ./scripts/feeds install -a
-
-echo "NPU integration completed."
+echo "NPU firmware integration completed."
