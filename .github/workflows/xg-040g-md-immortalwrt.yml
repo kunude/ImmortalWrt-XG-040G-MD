@@ -125,6 +125,7 @@ jobs:
         cd $OPENWRT_PATH
         make defconfig
         grep "CONFIG_PACKAGE_luci-app-airoha-npu" .config || echo "WARNING: option missing!"
+        grep "CONFIG_PACKAGE_luci-app-passwall2" .config || echo "WARNING: passwall2 option missing!"
 
     - name: Download DL Package(下载DL软件包)
       run: |
