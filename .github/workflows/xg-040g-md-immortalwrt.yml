@@ -77,6 +77,25 @@ jobs:
         VERSION_INFO=$(git show -s --date=short --format="作者: %an<br/>时间: %cd<br/>内容: %s<br/>hash: %H")
         echo "VERSION_INFO=$VERSION_INFO" >> $GITHUB_ENV
         echo "REPO_BRANCH=$REPO_BRANCH" >> $GITHUB_ENV
+    
+    - name: Apply device-specific patches
+      run: |
+        # 根据选择的分支决定使用哪个补丁目录
+        if [ "${{ github.event.inputs.repo_branch }}" == "master-XG-040G-MD" ]; then
+          PATCH_DIR="patch-master"
+        elif [ "${{ github.event.inputs.repo_branch }}" == "openwrt-25.12-XG-040G-MD" ]; then
+          PATCH_DIR="patch-25.12"
+        else
+          echo "未知分支，跳过补丁部署"
+          exit 0
+        fi
+
+        echo "使用补丁目录: $PATCH_DIR"
+        # 将补丁目录复制到 openwrt 源码根目录，并重命名为 patch（方便脚本内相对路径）
+        cp -r "$GITHUB_WORKSPACE/$PATCH_DIR" "$OPENWRT_PATH/patch"
+        cd "$OPENWRT_PATH/patch"
+        chmod +x patch.sh
+        ./patch.sh
 
     - name: Generate Variables(生成变量)
       run: |
