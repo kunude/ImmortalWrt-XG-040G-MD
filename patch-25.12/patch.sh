@@ -67,6 +67,16 @@ cp -a "$SCRIPT_DIR/target/linux/generic/pending-6.12/675-02-nft_flow_offload-add
 mkdir -p "$PROJECT_ROOT/target/linux/generic/pending-6.12"
 cp -a "$SCRIPT_DIR/target/linux/generic/pending-6.12/675-04-nft_flow_offload-add-vlan-passthrough-support.patch" "$PROJECT_ROOT/target/linux/generic/pending-6.12/675-04-nft_flow_offload-add-vlan-passthrough-support.patch"
 
+cp -a "$SCRIPT_DIR/target/linux/generic/pending-6.12/675-04-nft_flow_offload-add-vlan-passthrough-support.patch" "$PROJECT_ROOT/target/linux/generic/pending-6.12/675-04-nft_flow_offload-add-vlan-passthrough-support.patch"
+
+# 删除上游仓库中可能存在的冲突固件包，确保使用 add-npu.sh 生成的正确版本
+echo "删除上游冲突的 NPU 固件包..."
+rm -rf "$PROJECT_ROOT/package/airoha-en7581-mt7996-npu-firmware"
+rm -rf "$PROJECT_ROOT/feeds/packages/airoha-en7581-mt7996-npu-firmware"
+# 如果包在其他路径，也一并查找删除
+find "$PROJECT_ROOT" -type d -name "airoha-en7581-mt7996-npu-firmware" -exec rm -rf {} \; 2>/dev/null
+echo "已清理可能的冲突包"
+
 # 添加缺失的 platform.sh 文件（用于 sysupgrade）
 echo "添加 platform.sh 文件..."
 PLATFORM_SH_DIR="$PROJECT_ROOT/target/linux/airoha/an7581/base-files/lib/upgrade"
